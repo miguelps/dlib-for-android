@@ -1,25 +1,26 @@
 #!/bin/bash
 # Luca Anzalone
-# Updates: Miguel Pari soto
+# Updates: Miguel Pari Soto
 
 # -----------------------------------------------------------------------------
-#   Compiles Dlib for android and copy dlib/opencv libs to android project 
+#   Compiles Dlib for android and copy dlib/opencv libs to android project
 # -----------------------------------------------------------------------------
 
 # OpenCV library path (compiled)
-OPENCV_PATH=$HOME'/projects/OpenCV-android-sdk-410/sdk/native'
+OPENCV_PATH=$HOME'/projects/opencv/build/OpenCV-android-sdk/sdk/native'
 
 # Dlib library path (to compile)
 DLIB_PATH=$HOME'/projects/dlib-for-android/dlib'
 
 # Android project path (which will use these libs)
-PROJECT_PATH=$HOME'/projects/___afl'
+PROJECT_PATH=$HOME'/projects/android/android-face-landmarks'
 
 # Directory to copy native libraries
 NATIVE_DIR="$PROJECT_PATH/app/src/main/cppLibs"
 
 # Android-cmake path
-ANDROID_CMAKE=$HOME'/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
+# ANDROID_CMAKE=$HOME'/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
+ANDROID_CMAKE=$HOME'/Library/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
 
 # Android-ndk path
 NDK="${ANDROID_NDK:-$HOME/Android/Ndk}"
@@ -36,7 +37,7 @@ MIN_SDK=16
 STRIP_PATH="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
 
 # Declare the array
-declare -A STRIP_TOOLS
+declare -a STRIP_TOOLS
 
 STRIP_TOOLS=(
     ['armeabi-v7a']=$STRIP_PATH/arm-linux-androideabi-strip
@@ -47,7 +48,7 @@ STRIP_TOOLS=(
 
 # -----------------------------------------------------------------------------
 #   Dlib compilation
-# ----------------------------------------------------------------------------- 
+# -----------------------------------------------------------------------------
 
 function compile_dlib {
     cd $DLIB_PATH
@@ -56,7 +57,7 @@ function compile_dlib {
 
     for abi in "${ABI[@]}"
     do
-        echo 
+        echo
         echo "=> Compiling Dlib for ABI: '$abi'..."
 
         mkdir -p "build/$abi"
@@ -75,7 +76,7 @@ function compile_dlib {
                        -DANDROID_CPP_FEATURES=rtti exceptions \
                        -DCMAKE_PREFIX_PATH=../../ \
                        ../../
-         
+
         echo "=> Generating the 'dlib/libdlib.so' for ABI: '$abi'..."
         $ANDROID_CMAKE --build .
 
