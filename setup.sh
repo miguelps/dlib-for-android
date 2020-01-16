@@ -1,45 +1,52 @@
-#!/bin/bash
-# Luca Anzalone
 # Updates: Miguel Pari Soto
 
 # -----------------------------------------------------------------------------
 #   Compiles Dlib for android and copy dlib/opencv libs to android project
 # -----------------------------------------------------------------------------
 
-# OpenCV library path (compiled)
+bash_version=${BASH_VERSION%%[^0-9]*}
+min_bash_version=4
+
+if [ "$bash_version" -lt "$min_bash_version" ]
+then
+  echo ""
+  echo "Oh, ... bugger. This script requires bash > "${min_bash_version}"."
+  echo -e ${RED}"Your bash version is "${RESET}${BASH_VERSION}
+  echo ""
+  exit 1;
+fi
+
+# OpenCV library path (already compiled)
 OPENCV_PATH=$HOME'/projects/opencv/build/OpenCV-android-sdk/sdk/native'
 
-# Dlib library path (to compile)
-DLIB_PATH=$HOME'/projects/dlib-for-android/dlib'
-
-# Android project path (which will use these libs)
-PROJECT_PATH=$HOME'/projects/android/android-face-landmarks'
+# Dlib library source path (to compile)
+DLIB_PATH=$PWD'/dlib'
 
 # Directory to copy native libraries
-NATIVE_DIR="$PROJECT_PATH/app/src/main/cppLibs"
+OUTPUT_NATIVE_DIR=$PWD'/libs'
 
 # Android-cmake path
 # ANDROID_CMAKE=$HOME'/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
 ANDROID_CMAKE=$HOME'/Library/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
 
-# Android-ndk path
-NDK="${ANDROID_NDK:-$HOME/Android/Ndk}"
-
-TOOLCHAIN="$NDK/build/cmake/android.toolchain.cmake"
-
-# Supported Android ABI: TAKE ONLY WHAT YOU NEED!
-ABI=('armeabi-v7a' 'arm64-v8a' 'x86' 'x86_64')
+# Needs $ANDROID_NDK pointing Android-ndk path
+TOOLCHAIN="$ANDROID_NDK/build/cmake/android.toolchain.cmake"
 
 # Minimum supported sdk (should be greater than 16)
 MIN_SDK=16
 
-# path to strip tool: REPLACE WITH YOURS, ACCORDING TO OS!!
-STRIP_PATH="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+# Path to strip tool
+if [[ "$OSTYPE" == "linux-gnu" ]]; then
+    STRIP_PATH="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    STRIP_PATH="$ANDROID_NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+fi
 
-# Declare the array
-declare -a STRIP_TOOLS
+# Supported Android ABI: TAKE ONLY WHAT YOU NEED!
+ABI=('armeabi-v7a' 'arm64-v8a' 'x86' 'x86_64')
 
-STRIP_TOOLS=(
+# Array for lib strippers for all architectures
+declare -A STRIP_TOOLS=(
     ['armeabi-v7a']=$STRIP_PATH/arm-linux-androideabi-strip
     ['arm64-v8a']=$STRIP_PATH/aarch64-linux-android-strip
     ['x86']=$STRIP_PATH/x86_64-linux-android-strip
@@ -51,8 +58,6 @@ STRIP_TOOLS=(
 # -----------------------------------------------------------------------------
 
 function compile_dlib {
-    cd $DLIB_PATH
-
     echo '=> Compiling Dlib...'
 
     for abi in "${ABI[@]}"
@@ -60,11 +65,11 @@ function compile_dlib {
         echo
         echo "=> Compiling Dlib for ABI: '$abi'..."
 
-        mkdir -p "build/$abi"
-        cd "build/$abi"
+        mkdir -p "$DLIB_PATH/build/$abi"
+        cd "$DLIB_PATH/build/$abi"
 
         $ANDROID_CMAKE -DBUILD_SHARED_LIBS=1 \
-                       -DANDROID_NDK=$NDK \
+                       -DANDROID_NDK=$ANDROID_NDK \
                        -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN \
                        -DCMAKE_BUILD_TYPE=Release \
                        -DCMAKE_CXX_FLAGS="-std=c++11 -frtti -fexceptions" \
@@ -79,37 +84,28 @@ function compile_dlib {
 
         echo "=> Generating the 'dlib/libdlib.so' for ABI: '$abi'..."
         $ANDROID_CMAKE --build .
-
-        echo "=> Stripping libdlib.so for ABI: '$abi'to reduce lib size..."
-        ${STRIP_TOOLS[$abi]} --strip-unneeded dlib/libdlib.so
-
-        echo '=> done.'
-        cd ../../
     done
 }
 
 # -----------------------------------------------------------------------------
-#   Copy/setup Dlib lib
+#   Copy/strip/setup Dlib lib
 # -----------------------------------------------------------------------------
 
 function dlib_setup {
     echo
-    echo '=> Making directory for dlib include (headers)'
-    # mkdir "$NATIVE_DIR/dlib/include/dlib"
-    # echo "=> '$NATIVE_DIR/dlib/include/dlib' created."
-    mkdir -p "$NATIVE_DIR/dlib/include"
-    echo "=> '$NATIVE_DIR/dlib/include' created."
+    mkdir -p "$OUTPUT_NATIVE_DIR/dlib/include"
 
-    echo "=> Copying dlib headers..."
-    # cp -v -r "$DLIB_PATH/dlib" "$NATIVE_DIR/dlib/include/dlib"
-    cp -r "$DLIB_PATH/dlib/." "$NATIVE_DIR/dlib/include/."
+    echo "=> Copying dlib headers"
+    cp -r "$DLIB_PATH/dlib/." "$OUTPUT_NATIVE_DIR/dlib/include/."
 
-    echo "=> Copying 'libdlib.so' for each ABI..."
+    echo "=> Copying and stripping 'libdlib.so' for each ABI..."
     for abi in "${ABI[@]}"
     do
-        mkdir -p "$NATIVE_DIR/dlib/lib/$abi"
-        cp "$DLIB_PATH/build/$abi/dlib/libdlib.so" "$NATIVE_DIR/dlib/lib/$abi"
-        echo " > Copied libdlib.so for $abi"
+        echo " > ABI: '$abi' "
+        mkdir -p "$OUTPUT_NATIVE_DIR/dlib/lib/$abi"
+        cp "$DLIB_PATH/build/$abi/dlib/libdlib.so" "$OUTPUT_NATIVE_DIR/dlib/lib/$abi"
+        cd "$OUTPUT_NATIVE_DIR/dlib/lib/$abi"
+        ${STRIP_TOOLS[$abi]} --strip-unneeded libdlib.so
     done
 }
 
@@ -119,23 +115,21 @@ function dlib_setup {
 
 function opencv_setup {
     echo
-    echo '=> Making directory for opencv include (headers)'
-    mkdir -p "$NATIVE_DIR/opencv/include"
-    echo "=> '$NATIVE_DIR/opencv/include' created."
+    mkdir -p "$OUTPUT_NATIVE_DIR/opencv/include"
 
-    echo "=> Copying opencv headers..."
-    cp -r "$OPENCV_PATH/jni/include" "$NATIVE_DIR/opencv/."
+    echo "=> Copying opencv headers"
+    cp -r "$OPENCV_PATH/jni/include" "$OUTPUT_NATIVE_DIR/opencv/."
 
     echo "=> Copying 'libopencv_java4.so' for each ABI..."
     for abi in "${ABI[@]}"
     do
-        mkdir -p "$NATIVE_DIR/opencv/lib/$abi"
-        cp "$OPENCV_PATH/libs/$abi/libopencv_java4.so" "$NATIVE_DIR/opencv/lib/$abi"
-        echo " > Copied libopencv_java4.so for $abi"
+        echo " > ABI: '$abi' "
+        mkdir -p "$OUTPUT_NATIVE_DIR/opencv/lib/$abi"
+        cp "$OPENCV_PATH/libs/$abi/libopencv_java4.so" "$OUTPUT_NATIVE_DIR/opencv/lib/$abi"
+        # cd "$OUTPUT_NATIVE_DIR/opencv/lib/$abi"
+        # ${STRIP_TOOLS[$abi]} --strip-unneeded libopencv_java4.so
     done
 }
-
-mkdir -p $NATIVE_DIR
 
 # -----------------------------------------------------------------------------
 #   Project setup
