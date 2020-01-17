@@ -4,8 +4,8 @@
 #   Compiles Dlib for android and copy dlib/opencv libs to android project
 # -----------------------------------------------------------------------------
 
-bash_version=${BASH_VERSION%%[^0-9]*}
 min_bash_version=4
+bash_version=${BASH_VERSION%%[^0-9]*}
 
 if [ "$bash_version" -lt "$min_bash_version" ]
 then
@@ -23,11 +23,7 @@ OPENCV_PATH=$HOME'/projects/opencv/build/OpenCV-android-sdk/sdk/native'
 DLIB_PATH=$PWD'/dlib'
 
 # Directory to copy native libraries
-OUTPUT_NATIVE_DIR=$PWD'/libs'
-
-# Android-cmake path
-# ANDROID_CMAKE=$HOME'/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
-ANDROID_CMAKE=$HOME'/Library/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
+OUTPUT_NATIVE_DIR=$HOME'/idwall/android_libs'
 
 # Needs $ANDROID_NDK pointing Android-ndk path
 TOOLCHAIN="$ANDROID_NDK/build/cmake/android.toolchain.cmake"
@@ -35,11 +31,13 @@ TOOLCHAIN="$ANDROID_NDK/build/cmake/android.toolchain.cmake"
 # Minimum supported sdk (should be greater than 16)
 MIN_SDK=16
 
-# Path to strip tool
+# Paths cmake and strip tool
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
-    STRIP_PATH="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+    ANDROID_CMAKE=$HOME'/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
+    STRIP_PATH=$ANDROID_NDK'/toolchains/llvm/prebuilt/linux-x86_64/bin'
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-    STRIP_PATH="$ANDROID_NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+    ANDROID_CMAKE=$HOME'/Library/Android/Sdk/cmake/3.10.2.4988404/bin/cmake'
+    STRIP_PATH=$ANDROID_NDK'/toolchains/llvm/prebuilt/darwin-x86_64/bin'
 fi
 
 # Supported Android ABI: TAKE ONLY WHAT YOU NEED!
