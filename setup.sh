@@ -124,8 +124,6 @@ function opencv_setup {
         echo " > ABI: '$abi' "
         mkdir -p "$OUTPUT_NATIVE_DIR/opencv/lib/$abi"
         cp "$OPENCV_PATH/libs/$abi/libopencv_java4.so" "$OUTPUT_NATIVE_DIR/opencv/lib/$abi"
-        # cd "$OUTPUT_NATIVE_DIR/opencv/lib/$abi"
-        # ${STRIP_TOOLS[$abi]} --strip-unneeded libopencv_java4.so
     done
 }
 
